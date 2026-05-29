@@ -116,6 +116,7 @@ export class BridgeOutput {
     private linearTarget = 0;
     private linearVelocity = 0;
     private lastLinearSuck = 0;
+    private slowReleaseStates = new Map<number, {peak: number, peakAt: number}>();
 
     constructor(
         public readonly bioFeature: DeviceFeature,
@@ -137,7 +138,7 @@ export class BridgeOutput {
         return mutators.some(mutator => mutator.kind === 'motionBased');
     }
 
-    private applyMutators(value: number, mutators: OutputLinkMutator[]) {
+    private applyMutators(value: number, mutators: OutputLinkMutator[], linkIndex: number, now: number) {
         let out = value;
         const range = mutators.find(
             (mutator): mutator is Extract<OutputLinkMutator, {kind: 'range'}> => mutator.kind === 'range',
@@ -162,13 +163,27 @@ export class BridgeOutput {
             (mutator): mutator is Extract<OutputLinkMutator, {kind: 'scale'}> => mutator.kind === 'scale',
         );
         if (scale) out = out * scale.scale;
+        const slowRelease = mutators.find(
+            (mutator): mutator is Extract<OutputLinkMutator, {kind: 'slowRelease'}> => mutator.kind === 'slowRelease',
+        );
+        if (slowRelease && slowRelease.releaseMs > 0) {
+            const state = this.slowReleaseStates.get(linkIndex);
+            if (!state || out >= state.peak) {
+                this.slowReleaseStates.set(linkIndex, {peak: out, peakAt: now});
+            } else {
+                const elapsed = now - state.peakAt;
+                const decayed = state.peak * Math.max(0, 1 - elapsed / slowRelease.releaseMs);
+                if (decayed > out) out = decayed;
+            }
+        }
         return out;
     }
 
     getRelevantSources(gameDevices: GameDevice[], audioLevel: number | undefined, config: Output): RelevantSource[] {
         const links = config.links;
         const entries = this.osc.entries();
-        return links.map((link) => {
+        const now = Date.now();
+        return links.map((link, linkIndex) => {
             if (link.kind === 'constant') {
                 if (this.bioFeature.type === 'linear') return {value: 0, motionBased: false};
                 return {
@@ -179,7 +194,7 @@ export class BridgeOutput {
             if (link.kind === 'systemAudio') {
                 if (this.bioFeature.type === 'linear') return {value: 0, motionBased: false};
                 const rawAudio = audioLevel ?? 0;
-                const transformed = this.applyMutators(rawAudio, link.mutators);
+                const transformed = this.applyMutators(rawAudio, link.mutators, linkIndex, now);
                 return {
                     value: transformed,
                     motionBased: false,
@@ -190,7 +205,7 @@ export class BridgeOutput {
                 if (!parameter) return {value: 0, motionBased: false};
                 const valueUnknown = entries.get(parameter)?.get();
                 const raw = (typeof valueUnknown == 'number') ? valueUnknown : 0;
-                const transformed = this.applyMutators(raw, link.mutators);
+                const transformed = this.applyMutators(raw, link.mutators, linkIndex, now);
                 return {
                     value: transformed,
                     motionBased: this.hasMotionBased(link.mutators),
@@ -198,19 +213,18 @@ export class BridgeOutput {
             }
             let best: RelevantSource = {value: 0, motionBased: this.hasMotionBased(link.mutators)};
             if (link.kind === 'vrchat.sps.plug' || link.kind === 'vrchat.sps.socket' || link.kind === 'vrchat.sps.touch') {
+                let rawMax = 0;
                 for (const gameDevice of gameDevices) {
                     for (const source of gameDevice.getSources(link)) {
-                        const transformed = this.applyMutators(source.level, link.mutators);
-                        const candidate: RelevantSource = {
-                            value: transformed,
-                            motionBased: this.hasMotionBased(link.mutators),
-                        };
-                        if (candidate.value > best.value) {
-                            best = candidate;
-                        }
+                        if (source.level > rawMax) rawMax = source.level;
                     }
                 }
-                }
+                const transformed = this.applyMutators(rawMax, link.mutators, linkIndex, now);
+                best = {
+                    value: transformed,
+                    motionBased: this.hasMotionBased(link.mutators),
+                };
+            }
             return best;
         });
     }
