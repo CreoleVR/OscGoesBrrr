@@ -76,6 +76,10 @@ function ConfiguredOutputRow({outputAtom, infoAtom, onDelete}: Props) {
     const intifaceConnected = useAtomValue(
         useMemo(() => selectAtom(settingsStateAtom, (state) => state.intifaceConnected), [settingsStateAtom]),
     );
+    const handyConnected = useAtomValue(
+        useMemo(() => selectAtom(settingsStateAtom, (state) => state.handyConnected), [settingsStateAtom]),
+    );
+    const isHandyDevice = outputId === 'handy';
     const importedDeletesAt = useAtomValue(
         useMemo(() => selectAtom(settingsStateAtom, (state) => state.importedDeletesAt), [settingsStateAtom]),
     );
@@ -115,12 +119,14 @@ function ConfiguredOutputRow({outputAtom, infoAtom, onDelete}: Props) {
         alerts.push({severity: "warning", content: importedExpiryWarning});
     }
     if (!info?.connected) {
-        alerts.push({
-            severity: "error",
-            content: intifaceConnected
+        const message = isHandyDevice
+            ? (handyConnected
+                ? "This device is not connected."
+                : "This device is unavailable because The Handy is not connected.")
+            : (intifaceConnected
                 ? "This device is not connected to Intiface."
-                : "This device is unavailable because Intiface is not connected.",
-        });
+                : "This device is unavailable because Intiface is not connected.");
+        alerts.push({severity: "error", content: message});
     }
 
     return (

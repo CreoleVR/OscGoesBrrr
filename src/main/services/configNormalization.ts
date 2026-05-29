@@ -41,6 +41,14 @@ export function normalizeConfigDraft(draft: Draft<Config>, source: NormalizeSour
     if (shouldUnsetIntifaceAddress) delete draft.intifaceAddress;
     else draft.intifaceAddress = normalizedIntifaceAddress;
 
+    const trimmedHandyKey = draft.handyConnectionKey?.trim();
+    if (!trimmedHandyKey) delete draft.handyConnectionKey;
+    else draft.handyConnectionKey = trimmedHandyKey;
+
+    const trimmedHandyApp = draft.handyApplicationId?.trim();
+    if (!trimmedHandyApp) delete draft.handyApplicationId;
+    else draft.handyApplicationId = trimmedHandyApp;
+
     draft.oscProxy = draft.oscProxy.map(target => {
         const normalized = normalizeAddress(target, 0, true) ?? '';
         if (normalized === 'localhost:9000' || normalized === 'localhost:9001') return '';

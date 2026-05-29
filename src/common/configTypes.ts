@@ -108,6 +108,18 @@ export function getDefaultLinearActuatorConfig(): OutputLinearActuatorConfig {
     };
 }
 
+export function getHandyLinearActuatorConfig(): OutputLinearActuatorConfig {
+    return {
+        maxv: 10,
+        maxa: 300,
+        durationMult: 1,
+        restingPos: 0,
+        restingTime: 86400,
+        min: 0,
+        max: 1,
+    };
+}
+
 export interface OutputLinkScaleMutator {
     kind: 'scale';
     scale: number;
@@ -155,6 +167,9 @@ export interface Config {
     version: number;
     intifaceAddress?: string;
     useIntifaceMdns: boolean;
+    handyConnectionKey?: string;
+    handyApplicationId?: string;
+    handyEnabled?: boolean;
     useOscQuery: boolean;
     maxLevelParam?: string;
     oscProxy: string[];

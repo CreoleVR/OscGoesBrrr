@@ -16,7 +16,15 @@ import TypedEventEmitter from "../common/TypedEventEmitter";
 import clamp from "../common/clamp";
 import IntifaceSession from "./IntifaceSession";
 
-type DeviceMotionType = 'linear' | 'vibrate' | 'rotate';
+export type DeviceMotionType = 'linear' | 'vibrate' | 'rotate';
+
+export interface DeviceFeature {
+    readonly id: string;
+    readonly type: DeviceMotionType;
+    readonly intiface: IntifaceDeviceFeatureSelection;
+    lastLevel: number;
+    setLevel(level: number, duration?: number): void;
+}
 
 const getDeviceMotionTypeFromOutputType = (outputType: IntifaceOutputType): DeviceMotionType => {
     if (outputType === 'Position' || outputType === 'HwPositionWithDuration') return 'linear';
@@ -207,7 +215,7 @@ export default class Intiface extends TypedEventEmitter<MyEvents> {
                 feature: rawFeature,
                 selectedOutput: selected,
             };
-            const feature = new DeviceFeature(
+            const feature = new IntifaceDeviceFeature(
                 configOutputId,
                 this,
                 intifaceSelection,
@@ -226,13 +234,18 @@ export default class Intiface extends TypedEventEmitter<MyEvents> {
     }
 }
 
-export class DeviceFeature {
+const INTIFACE_MIN_SEND_INTERVAL_MS = 66;
+
+export class IntifaceDeviceFeature implements DeviceFeature {
     readonly id;
     readonly type: DeviceMotionType;
     private readonly parent;
     private readonly range;
     readonly intiface;
     lastLevel = 0;
+    private lastSendTime = 0;
+    private pendingSend: {level: number, duration: number} | null = null;
+    private flushTimer?: ReturnType<typeof setTimeout>;
 
     constructor(
         fullFeatureId: string,
@@ -274,6 +287,29 @@ export class DeviceFeature {
     }
 
     setLevel(level: number, duration = 0) {
+        this.lastLevel = level;
+        const now = Date.now();
+        const elapsed = now - this.lastSendTime;
+        if (elapsed >= INTIFACE_MIN_SEND_INTERVAL_MS) {
+            this.lastSendTime = now;
+            this.emitCommand(level, duration);
+            return;
+        }
+        this.pendingSend = {level, duration};
+        if (this.flushTimer === undefined) {
+            this.flushTimer = setTimeout(() => {
+                this.flushTimer = undefined;
+                const pending = this.pendingSend;
+                this.pendingSend = null;
+                if (pending) {
+                    this.lastSendTime = Date.now();
+                    this.emitCommand(pending.level, pending.duration);
+                }
+            }, INTIFACE_MIN_SEND_INTERVAL_MS - elapsed);
+        }
+    }
+
+    private emitCommand(level: number, duration: number) {
         const selectedOutput = this.intiface.selectedOutput;
         const command: IntifaceOutputCommand = (() => {
             if (selectedOutput === 'HwPositionWithDuration') {
@@ -306,6 +342,5 @@ export class DeviceFeature {
                 Command: command,
             });
         } catch {}
-        this.lastLevel = level;
     }
 }
