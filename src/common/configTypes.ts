@@ -121,10 +121,16 @@ export interface OutputLinkDeadZoneMutator {
 export interface OutputLinkMotionBasedMutator {
     kind: 'motionBased';
 }
+export interface OutputLinkRangeMutator {
+    kind: 'range';
+    inputMin: number;
+    inputMax: number;
+}
 export type OutputLinkMutator =
     | OutputLinkScaleMutator
     | OutputLinkDeadZoneMutator
-    | OutputLinkMotionBasedMutator;
+    | OutputLinkMotionBasedMutator
+    | OutputLinkRangeMutator;
 export type OutputLinkMutatorKind = OutputLinkMutator['kind'];
 
 export interface Output {

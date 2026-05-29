@@ -133,6 +133,7 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                 {kind: 'scale', label: 'Scale'},
                 {kind: 'deadZone', label: 'Dead Zone'},
                 {kind: 'motionBased', label: 'Motion-Based'},
+                {kind: 'range', label: 'Range'},
             ]
             : [];
     const availableMutatorOptions = mutatorOptions.filter(option => !getMutators().some(mutator => mutator.kind === option.kind));
@@ -145,6 +146,8 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                 return {kind: 'deadZone', level: 0};
             case 'motionBased':
                 return {kind: 'motionBased'};
+            case 'range':
+                return {kind: 'range', inputMin: 0, inputMax: 0.95};
         }
     };
 
@@ -347,7 +350,8 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                                         <Typography variant="body2">
                                             {mutator.kind === 'scale' ? `Scale (${formatPercent(mutator.scale)}%)`
                                                 : mutator.kind === 'deadZone' ? `Dead Zone (${formatPercent(mutator.level)}%)`
-                                                    : 'Motion-Based'}
+                                                    : mutator.kind === 'range' ? `Range (${formatPercent(mutator.inputMin)}% – ${formatPercent(mutator.inputMax)}%)`
+                                                        : 'Motion-Based'}
                                         </Typography>
                                         <IconButton size="small" color="error" onClick={removeThisMutator}>
                                             <CloseIcon fontSize="small" />
@@ -401,6 +405,32 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                                         <Typography variant="body2" color="text.secondary">
                                             Intensity will be based on motion, rather than depth.
                                         </Typography>
+                                    )}
+                                    {mutator.kind === 'range' && (
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Stretch the input range to fill the output. Values below min map to 0%, values above max map to 100%.
+                                            </Typography>
+                                            <Slider
+                                                value={[formatPercent(mutator.inputMin), formatPercent(mutator.inputMax)]}
+                                                min={0}
+                                                max={100}
+                                                step={1}
+                                                valueLabelDisplay="auto"
+                                                valueLabelFormat={(value) => `${value}%`}
+                                                disableSwap
+                                                onChange={(_e, value) => {
+                                                    if (!Array.isArray(value) || value.length !== 2) return;
+                                                    const [lo, hi] = value;
+                                                    if (typeof lo !== 'number' || typeof hi !== 'number') return;
+                                                    commitThisMutator((draft) => {
+                                                        if (draft.kind !== 'range') return;
+                                                        draft.inputMin = lo / 100;
+                                                        draft.inputMax = hi / 100;
+                                                    });
+                                                }}
+                                            />
+                                        </Box>
                                     )}
                                 </Stack>
                             </Box>;

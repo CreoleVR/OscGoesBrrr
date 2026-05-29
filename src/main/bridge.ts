@@ -145,6 +145,15 @@ export class BridgeOutput {
             backward = velocity < 0;
         }
 
+        const range = mutators.find(
+            (mutator): mutator is Extract<OutputLinkMutator, {kind: 'range'}> => mutator.kind === 'range',
+        );
+        if (range) {
+            const span = range.inputMax - range.inputMin;
+            if (span > 0) {
+                value = clamp((value - range.inputMin) / span, 0, 1);
+            }
+        }
         const deadZone = mutators.find(
             (mutator): mutator is Extract<OutputLinkMutator, {kind: 'deadZone'}> => mutator.kind === 'deadZone',
         );
