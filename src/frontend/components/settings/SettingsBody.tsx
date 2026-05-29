@@ -15,6 +15,7 @@ import {SettingsStatePayload} from "../../../common/ipcContract";
 import ConfiguredOutputRow from "./ConfiguredOutputRow";
 import UnconfiguredOutputRow from "./UnconfiguredOutputRow";
 import IntifaceSettingsSection from "./IntifaceSettingsSection";
+import HandySettingsSection from "./HandySettingsSection";
 import VrchatSettingsSection from "./VrchatSettingsSection";
 import {atom, type PrimitiveAtom, useAtomValue, useSetAtom} from "jotai";
 import {selectAtom, splitAtom} from "jotai/utils";
@@ -31,9 +32,13 @@ function SettingsBody({
     settingsStateAtom,
 }: Props) {
     const [intifaceExpanded, setIntifaceExpanded] = useState(false);
+    const [handyExpanded, setHandyExpanded] = useState(false);
     const [vrchatExpanded, setVrchatExpanded] = useState(false);
     const [pendingDeleteOutputId, setPendingDeleteOutputId] = useState<string | null>(null);
     const intifaceAddressAtom = useMemo(() => focusKeyAtom(configAtom, 'intifaceAddress'), [configAtom]);
+    const handyConnectionKeyAtom = useMemo(() => focusKeyAtom(configAtom, 'handyConnectionKey'), [configAtom]);
+    const handyApplicationIdAtom = useMemo(() => focusKeyAtom(configAtom, 'handyApplicationId'), [configAtom]);
+    const handyEnabledAtom = useMemo(() => focusKeyAtom(configAtom, 'handyEnabled'), [configAtom]);
     const useOscQueryAtom = useMemo(() => focusKeyAtom(configAtom, 'useOscQuery'), [configAtom]);
     const maxLevelParamAtom = useMemo(() => focusKeyAtom(configAtom, 'maxLevelParam'), [configAtom]);
     const vrcConfigDirAtom = useMemo(() => focusKeyAtom(configAtom, 'vrcConfigDir'), [configAtom]);
@@ -118,6 +123,14 @@ function SettingsBody({
                 expanded={intifaceExpanded}
                 onChange={setIntifaceExpanded}
                 intifaceAddressAtom={intifaceAddressAtom}
+            />
+
+            <HandySettingsSection
+                expanded={handyExpanded}
+                onChange={setHandyExpanded}
+                handyConnectionKeyAtom={handyConnectionKeyAtom}
+                handyApplicationIdAtom={handyApplicationIdAtom}
+                handyEnabledAtom={handyEnabledAtom}
             />
 
             <VrchatSettingsSection

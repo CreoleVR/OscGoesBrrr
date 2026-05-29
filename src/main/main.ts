@@ -6,6 +6,7 @@ import Bridge from './bridge';
 import Updater from './updater';
 import OscConnection from "./OscConnection";
 import Buttplug from "./Buttplug";
+import Handy from "./handy/Handy";
 import VrcConfigCheck from "./VrcConfigCheck";
 import {Container} from "typedi";
 import MainWindowService from "./services/MainWindowService";
@@ -60,6 +61,7 @@ container.get(OscQueryMdnsBroadcastService);
 }
 
 const butt = container.get(Buttplug);
+const handy = container.get(Handy);
 const bridge = container.get(Bridge);
 
 handleIpc('avatarParams:get', async () => {
@@ -86,6 +88,8 @@ handleIpc('settings-state:request', async () => {
         configService.getCached().intifaceAddress,
         myAddressesService,
     );
+    const handyConfigured = Boolean(configService.getCached().handyConnectionKey?.trim()) && Boolean(configService.getCached().handyApplicationId?.trim());
+    const handyConnected = handy.isConnected();
     const vrchatConnected = oscConnection.isGameOpenAndActive();
     const detectedVrcConfigDir = await vrchatLogFinder.getDetectedVrcConfigDir();
     const connectedOutputDevices = Array.from(bridge.getOutputs());
@@ -233,6 +237,8 @@ handleIpc('settings-state:request', async () => {
             outputs: entries,
             intifaceConnected,
             intifaceAddressOffSubnet,
+            handyConfigured,
+            handyConnected,
             updateAvailable: updater.getAvailableUpdate(),
             vrchat: {
                 connected: vrchatConnected,
@@ -288,6 +294,8 @@ handleIpc('fft:status', (level) => {
     if (level < 0 || level > 1 || isNaN(level)) return;
     bridge.receivedFft(level);
 })
+
+handleIpc('handy:runDiagnostic', () => handy.runDiagnostic());
 
 setInterval(() => {
     const hasSystemAudioLinks = Array.from(bridge.getOutputs()).some(outputDevice => {
