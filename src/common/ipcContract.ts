@@ -54,6 +54,8 @@ export interface SettingsStatePayload {
     intifaceConnected: boolean;
     intifaceConnectedAddress?: string;
     intifaceAddressOffSubnet: boolean;
+    handyConfigured: boolean;
+    handyConnected: boolean;
     updateAvailable?: {
         version?: string;
         downloadUrl?: string;
@@ -61,6 +63,12 @@ export interface SettingsStatePayload {
     };
     vrchat: SettingsStateVrchat;
     importedDeletesAt?: number;
+}
+
+export interface HandyDiagnosticResult {
+    latencyMs: number;
+    accuracyRms: number;
+    overshoot: number;
 }
 
 export interface IpcInvokeMap {
@@ -76,6 +84,7 @@ export interface IpcInvokeMap {
     'config:set': {args: [Config]; result: void};
     'fft:status': {args: [number]; result: void};
     'log:history': {args: []; result: string[]};
+    'handy:runDiagnostic': {args: []; result: Result<HandyDiagnosticResult>};
 }
 
 export interface IpcEventMap {

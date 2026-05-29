@@ -3,8 +3,9 @@ import {OscValue} from "./OscConnection";
 import OscConnection from "./OscConnection";
 import GameDevice from "./GameDevice";
 import {DeviceFeature} from "./Intiface";
+import Handy, {HANDY_FEATURE_ID} from "./handy/Handy";
 import ConfigService from "./services/ConfigService";
-import {getDefaultLinearActuatorConfig, getDefaultOutput, Output, OutputLinkMutator} from "../common/configTypes";
+import {getDefaultLinearActuatorConfig, getHandyLinearActuatorConfig, getDefaultOutput, Output, OutputLinkMutator} from "../common/configTypes";
 import clamp from "../common/clamp";
 import {Service} from "typedi";
 
@@ -18,22 +19,27 @@ export default class Bridge {
     constructor(
         private osc: OscConnection,
         private intiface: Intiface,
+        private handy: Handy,
         private configService: ConfigService
     ) {
         this.osc.on('add', this.onOscAddKey);
         this.osc.on('clear', this.onOscClear);
-        this.intiface.on('addFeature', f => {
-            this.outputs.add(new BridgeOutput(f,this.configService,this.osc));
-        });
-        this.intiface.on('removeFeature', f => {
+        const addFeature = (f: DeviceFeature) => {
+            this.outputs.add(new BridgeOutput(f, this.configService, this.osc));
+        };
+        const removeFeature = (f: DeviceFeature) => {
             for (const output of this.outputs) {
                 if (output.bioFeature == f) this.outputs.delete(output);
             }
-        })
+        };
+        this.intiface.on('addFeature', addFeature);
+        this.intiface.on('removeFeature', removeFeature);
+        this.handy.on('addFeature', addFeature);
+        this.handy.on('removeFeature', removeFeature);
 
         setInterval(() => {
             this.pushToBio();
-        }, 1000/15);
+        }, 1000/60);
     }
 
     onOscAddKey = (key: string, value: OscValue) => {
@@ -270,7 +276,9 @@ export class BridgeOutput {
         level = clamp(level, 0, 1);
 
         if (this.bioFeature.type == 'linear') {
-            const linearDefaults = getDefaultLinearActuatorConfig();
+            const linearDefaults = this.bioFeature.id === HANDY_FEATURE_ID
+                ? getHandyLinearActuatorConfig()
+                : getDefaultLinearActuatorConfig();
             const linearConfig = {
                 ...linearDefaults,
                 ...(config.linear ?? {}),
