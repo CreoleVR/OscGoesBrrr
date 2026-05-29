@@ -126,11 +126,16 @@ export interface OutputLinkRangeMutator {
     inputMin: number;
     inputMax: number;
 }
+export interface OutputLinkSlowReleaseMutator {
+    kind: 'slowRelease';
+    releaseMs: number;
+}
 export type OutputLinkMutator =
     | OutputLinkScaleMutator
     | OutputLinkDeadZoneMutator
     | OutputLinkMotionBasedMutator
-    | OutputLinkRangeMutator;
+    | OutputLinkRangeMutator
+    | OutputLinkSlowReleaseMutator;
 export type OutputLinkMutatorKind = OutputLinkMutator['kind'];
 
 export interface Output {
