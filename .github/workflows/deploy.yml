@@ -28,8 +28,8 @@ jobs:
       - name: Determine Version
         id: determine_version
         run: |
-          pnpm install --frozen-lockfile
-          VERSION="$(pnpm exec release-it --release-version)"
+          UPSTREAM_VERSION="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1)"
+          VERSION="${UPSTREAM_VERSION}-creole"
           TAG_NAME="v${VERSION}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tagName=$TAG_NAME" >> "$GITHUB_OUTPUT"
@@ -140,52 +140,3 @@ jobs:
             windows/OscGoesBrrr-windows-portable-${{ needs.version.outputs.version }}.exe
             linux/OscGoesBrrr-linux-${{ needs.version.outputs.version }}.AppImage
             linux/OscGoesBrrr-linux-${{ needs.version.outputs.version }}.rpm
-
-  update_manifest:
-    needs: [version, release]
-    if: github.ref_name == github.event.repository.default_branch
-    runs-on: ubuntu-latest
-    environment: prod
-    steps:
-      - name: Checkout version manifest
-        uses: actions/checkout@v6
-        with:
-          repository: OSCToys/ogb-updater-manifest
-          ssh-key: ${{ secrets.VERSION_DEPLOY_KEY }}
-      - uses: actions/setup-node@v6
-        with:
-          # Can't use pnpm because we don't clone the repo for this job
-          node-version: 24
-      - name: Update Version Manifest
-        run: |
-          jq \
-            --arg v "$VERSION" \
-            --arg gu "$GENERIC_DOWNLOAD_URL" \
-            --arg ws "$WINDOWS_SETUP_URL" \
-            --arg wp "$WINDOWS_PORTABLE_URL" \
-            --arg la "$LINUX_APPIMAGE_URL" \
-            --arg lr "$LINUX_RPM_URL" \
-            '.latestVersion = $v
-             | .latestInstaller = $ws
-             | .downloadUrls = ((.downloadUrls // {}) + {
-                 generic: $gu,
-                 windowsSetup: $ws,
-                 windowsPortable: $wp,
-                 linuxAppImage: $la,
-                 linuxRpm: $lr
-               })' updates.json > updates.json.tmp
-          mv updates.json.tmp updates.json
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-          GENERIC_DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/tag/${{ needs.version.outputs.tagName }}
-          WINDOWS_SETUP_URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.tagName }}/OscGoesBrrr-windows-setup-${{ needs.version.outputs.version }}.exe
-          WINDOWS_PORTABLE_URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.tagName }}/OscGoesBrrr-windows-portable-${{ needs.version.outputs.version }}.exe
-          LINUX_APPIMAGE_URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.tagName }}/OscGoesBrrr-linux-${{ needs.version.outputs.version }}.AppImage
-          LINUX_RPM_URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.version.outputs.tagName }}/OscGoesBrrr-linux-${{ needs.version.outputs.version }}.rpm
-      - name: Push version manifest
-        run: |
-          git diff
-          git config user.name Releases
-          git config user.email noreply@osc.toys
-          git diff --quiet || git commit -am "Release from $GITHUB_SHA"
-          git push
