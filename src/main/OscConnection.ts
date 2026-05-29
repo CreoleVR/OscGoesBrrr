@@ -242,6 +242,7 @@ export default class OscConnection extends TypedEventEmitter<MyEvents> {
     public waitingForBulk = false;
     private updateBulkAttempt: unknown;
     private async updateBulk() {
+        if (!this.socketUsesOscQuery) return;
         this.waitingForBulk = true;
         const myAttempt = this.updateBulkAttempt = {};
         const isStillValid = () => this.updateBulkAttempt == myAttempt;
@@ -321,7 +322,7 @@ export default class OscConnection extends TypedEventEmitter<MyEvents> {
         const nextVisible = Boolean(
             this.socketopen
             && !this.isStale
-            && this.hasBulkSinceAvatarChange
+            && (this.hasBulkSinceAvatarChange || !this.socketUsesOscQuery)
         );
         if (nextVisible === this.entriesVisible) return;
         this.entriesVisible = nextVisible;
