@@ -117,6 +117,7 @@ export class BridgeOutput {
     private linearTarget = 0;
     private linearVelocity = 0;
     private lastLinearSuck = 0;
+    private slowReleaseStates = new Map<number, {peak: number, peakAt: number}>();
 
     constructor(
         public readonly bioFeature: DeviceFeature,
@@ -171,9 +172,27 @@ export class BridgeOutput {
         return {output: value, backward};
     }
 
+    private applySlowRelease(value: number, mutators: OutputLinkMutator[], linkIndex: number, now: number) {
+        const slowRelease = mutators.find(
+            (mutator): mutator is Extract<OutputLinkMutator, {kind: 'slowRelease'}> => mutator.kind === 'slowRelease',
+        );
+        if (slowRelease && slowRelease.releaseMs > 0) {
+            const state = this.slowReleaseStates.get(linkIndex);
+            if (!state || value >= state.peak) {
+                this.slowReleaseStates.set(linkIndex, {peak: value, peakAt: now});
+            } else {
+                const elapsed = now - state.peakAt;
+                const decayed = state.peak * Math.max(0, 1 - elapsed / slowRelease.releaseMs);
+                if (decayed > value) value = decayed;
+            }
+        }
+        return value;
+    }
+
     getLinkOutputs(gameDevices: GameDevice[], audioLevel: number | undefined, config: Output, timeDelta: number): LinkOutput[] {
         const links = config.links;
         const entries = this.osc.entries();
+        const now = Date.now();
         const nextLastSources = new Map<string, number>();
         const applyMutators = (sourceId: string, value: number, mutators: OutputLinkMutator[]) => {
             const lastValue = this.lastSourceValues.get(sourceId) ?? value;
@@ -222,6 +241,12 @@ export class BridgeOutput {
             return best;
         });
         this.lastSourceValues = nextLastSources;
+        for (const [linkIndex, linkOutput] of linkOutputs.entries()) {
+            const link = links[linkIndex];
+            if (link && link.kind !== 'constant') {
+                linkOutput.output = this.applySlowRelease(linkOutput.output, link.mutators, linkIndex, now);
+            }
+        }
         this.lastLinkValues = linkOutputs.map(linkOutput => linkOutput.output);
         return linkOutputs;
     }

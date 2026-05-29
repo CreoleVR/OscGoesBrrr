@@ -134,6 +134,7 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                 {kind: 'deadZone', label: 'Dead Zone'},
                 {kind: 'motionBased', label: 'Motion-Based'},
                 {kind: 'range', label: 'Range'},
+                {kind: 'slowRelease', label: 'Slow Release'},
             ]
             : [];
     const availableMutatorOptions = mutatorOptions.filter(option => !getMutators().some(mutator => mutator.kind === option.kind));
@@ -148,6 +149,8 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                 return {kind: 'motionBased'};
             case 'range':
                 return {kind: 'range', inputMin: 0, inputMax: 0.95};
+            case 'slowRelease':
+                return {kind: 'slowRelease', releaseMs: 500};
         }
     };
 
@@ -351,7 +354,8 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                                             {mutator.kind === 'scale' ? `Scale (${formatPercent(mutator.scale)}%)`
                                                 : mutator.kind === 'deadZone' ? `Dead Zone (${formatPercent(mutator.level)}%)`
                                                     : mutator.kind === 'range' ? `Range (${formatPercent(mutator.inputMin)}% – ${formatPercent(mutator.inputMax)}%)`
-                                                        : 'Motion-Based'}
+                                                        : mutator.kind === 'slowRelease' ? `Slow Release (${mutator.releaseMs}ms)`
+                                                            : 'Motion-Based'}
                                         </Typography>
                                         <IconButton size="small" color="error" onClick={removeThisMutator}>
                                             <CloseIcon fontSize="small" />
@@ -427,6 +431,28 @@ function OutputLinkEditor({linkAtom, activeLevel, labelMap, removeLink}: Props) 
                                                         if (draft.kind !== 'range') return;
                                                         draft.inputMin = lo / 100;
                                                         draft.inputMax = hi / 100;
+                                                    });
+                                                }}
+                                            />
+                                        </Box>
+                                    )}
+                                    {mutator.kind === 'slowRelease' && (
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Hold the most recent peak and decay it linearly to zero. Useful for masking SPS plug overshoot.
+                                            </Typography>
+                                            <Slider
+                                                value={mutator.releaseMs}
+                                                min={0}
+                                                max={2000}
+                                                step={50}
+                                                valueLabelDisplay="auto"
+                                                valueLabelFormat={(value) => `${value}ms`}
+                                                onChange={(_e, value) => {
+                                                    if (typeof value !== 'number') return;
+                                                    commitThisMutator((draft) => {
+                                                        if (draft.kind !== 'slowRelease') return;
+                                                        draft.releaseMs = value;
                                                     });
                                                 }}
                                             />
