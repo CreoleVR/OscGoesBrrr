@@ -169,6 +169,7 @@ export interface Config {
     handyConnectionKey?: string;
     handyApplicationId?: string;
     handyEnabled?: boolean;
+    handyConnectionMode?: 'wifi' | 'ble';
     useOscQuery: boolean;
     maxLevelParam?: string;
     oscProxy: string[];

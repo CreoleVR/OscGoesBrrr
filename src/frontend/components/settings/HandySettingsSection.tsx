@@ -1,5 +1,5 @@
 import React from "react";
-import {Alert, AlertColor, Button, CircularProgress, Link, Stack, Typography} from "@mui/material";
+import {Alert, AlertColor, Button, CircularProgress, Link, Stack, ToggleButton, ToggleButtonGroup, Typography} from "@mui/material";
 import TextCommitInput from "../util/TextCommitInput";
 import MyAccordion from "../util/MyAccordion";
 import ConnectionBubble from "./ConnectionBubble";
@@ -16,6 +16,7 @@ interface Props {
     handyConnectionKeyAtom: PrimitiveAtom<string | undefined>;
     handyApplicationIdAtom: PrimitiveAtom<string | undefined>;
     handyEnabledAtom: PrimitiveAtom<boolean | undefined>;
+    handyConnectionModeAtom: PrimitiveAtom<'wifi' | 'ble' | undefined>;
 }
 
 function HandySettingsSection({
@@ -24,6 +25,7 @@ function HandySettingsSection({
     handyConnectionKeyAtom,
     handyApplicationIdAtom,
     handyEnabledAtom,
+    handyConnectionModeAtom,
 }: Props) {
     const settingsStateAtom = useSettingsStateAtom();
     const handyConfigured = useAtomValue(
@@ -35,13 +37,17 @@ function HandySettingsSection({
     const [handyConnectionKey, setHandyConnectionKey] = useAtom(handyConnectionKeyAtom);
     const [handyApplicationId, setHandyApplicationId] = useAtom(handyApplicationIdAtom);
     const [handyEnabled, setHandyEnabled] = useAtom(handyEnabledAtom);
+    const [handyConnectionMode, setHandyConnectionMode] = useAtom(handyConnectionModeAtom);
+    const mode = handyConnectionMode ?? 'wifi';
     const enabled = handyEnabled === true;
 
     const alerts: {severity: AlertColor; content: string}[] = [];
     if (!handyConfigured) {
         alerts.push({
             severity: "warning",
-            content: "Enter your Handy connection key and application ID, then click Connect.",
+            content: mode === 'ble'
+                ? "Enter your Handy connection key, then click Connect."
+                : "Enter your Handy connection key and application ID, then click Connect.",
         });
     } else if (!enabled) {
         alerts.push({
@@ -51,7 +57,9 @@ function HandySettingsSection({
     } else if (!handyConnected) {
         alerts.push({
             severity: "warning",
-            content: "Connecting to Handy... Check that the device is online and the connection key is correct.",
+            content: mode === 'ble'
+                ? "Connecting over Bluetooth… make sure the Handy is powered on, in Bluetooth mode, and nearby."
+                : "Connecting to Handy… check that the device is online and the connection key is correct.",
         });
     }
 
@@ -93,24 +101,46 @@ function HandySettingsSection({
                 {alerts.map((alert, index) => (
                     <Alert key={index} severity={alert.severity}>{alert.content}</Alert>
                 ))}
-                <Typography variant="body2" color="text.secondary">
-                    Requires Handy firmware 4 or later with Wi-Fi mode enabled. Get your connection key from{' '}
-                    <Link href="https://handyfeeling.com" target="_blank" rel="noreferrer">handyfeeling.com</Link>,
-                    and create an application ID at{' '}
-                    <Link href="https://user.handyfeeling.com" target="_blank" rel="noreferrer">user.handyfeeling.com</Link>.
-                </Typography>
-                <TextCommitInput
-                    value={handyConnectionKey ?? ''}
-                    label="Connection Key"
-                    placeholder="Paste your Handy connection key"
-                    onCommit={setHandyConnectionKey}
-                />
-                <TextCommitInput
-                    value={handyApplicationId ?? ''}
-                    label="Application ID"
-                    placeholder="Paste your Handy application ID"
-                    onCommit={setHandyApplicationId}
-                />
+                <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    color="primary"
+                    value={mode}
+                    disabled={enabled}
+                    onChange={(_e, next: 'wifi' | 'ble' | null) => { if (next) setHandyConnectionMode(next); }}
+                >
+                    <ToggleButton value="wifi">Wi-Fi (cloud)</ToggleButton>
+                    <ToggleButton value="ble">Bluetooth (local)</ToggleButton>
+                </ToggleButtonGroup>
+                {mode === 'ble' ? (
+                    <Typography variant="body2" color="text.secondary">
+                        Direct Bluetooth LE to the device (firmware 4+). Lowest latency — no cloud
+                        round-trip, and no connection key needed. Put the Handy in Bluetooth mode,
+                        keep it nearby, and click Connect.
+                    </Typography>
+                ) : (
+                    <>
+                        <Typography variant="body2" color="text.secondary">
+                            Cloud control over Wi-Fi. Requires Handy firmware 4 or later with Wi-Fi
+                            mode enabled. Get your connection key from{' '}
+                            <Link href="https://handyfeeling.com" target="_blank" rel="noreferrer">handyfeeling.com</Link>,
+                            and create an application ID at{' '}
+                            <Link href="https://user.handyfeeling.com" target="_blank" rel="noreferrer">user.handyfeeling.com</Link>.
+                        </Typography>
+                        <TextCommitInput
+                            value={handyConnectionKey ?? ''}
+                            label="Connection Key"
+                            placeholder="Paste your Handy connection key"
+                            onCommit={setHandyConnectionKey}
+                        />
+                        <TextCommitInput
+                            value={handyApplicationId ?? ''}
+                            label="Application ID"
+                            placeholder="Paste your Handy application ID"
+                            onCommit={setHandyApplicationId}
+                        />
+                    </>
+                )}
                 <Stack direction="row" spacing={1} alignItems="center">
                     <Button
                         variant="contained"
@@ -152,9 +182,9 @@ function HandySettingsSection({
                                 Overshoot (travel past stroke ends): <strong>{diagnosticResult.overshoot}%</strong>
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                Lower is better. High latency usually means Bluetooth mode — switch
-                                the Handy to Wi-Fi for snappier motion. Some tracking error at the
-                                fastest strokes is normal (the device can't keep up and simply
+                                Lower is better. For the snappiest motion use direct Bluetooth
+                                (local) mode, which skips the cloud round-trip. Some tracking error
+                                at the fastest strokes is normal (the device can't keep up and simply
                                 under-travels, which feels fine in use).
                             </Typography>
                         </Stack>

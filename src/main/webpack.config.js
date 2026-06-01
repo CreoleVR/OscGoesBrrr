@@ -51,6 +51,7 @@ const config = (_env, argv) => {
             'bufferutil': 'commonjs2 doesnotexist',
             'utf-8-validate': 'commonjs2 doesnotexist',
             'native-reg': 'node-commonjs native-reg',
+            'node-ble': 'node-commonjs node-ble',
         },
         resolve: {
             extensions: ['', '.ts', '.tsx', '.js', '.jsx'],

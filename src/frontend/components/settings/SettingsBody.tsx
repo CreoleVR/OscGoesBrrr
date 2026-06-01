@@ -39,6 +39,7 @@ function SettingsBody({
     const handyConnectionKeyAtom = useMemo(() => focusKeyAtom(configAtom, 'handyConnectionKey'), [configAtom]);
     const handyApplicationIdAtom = useMemo(() => focusKeyAtom(configAtom, 'handyApplicationId'), [configAtom]);
     const handyEnabledAtom = useMemo(() => focusKeyAtom(configAtom, 'handyEnabled'), [configAtom]);
+    const handyConnectionModeAtom = useMemo(() => focusKeyAtom(configAtom, 'handyConnectionMode'), [configAtom]);
     const useOscQueryAtom = useMemo(() => focusKeyAtom(configAtom, 'useOscQuery'), [configAtom]);
     const maxLevelParamAtom = useMemo(() => focusKeyAtom(configAtom, 'maxLevelParam'), [configAtom]);
     const vrcConfigDirAtom = useMemo(() => focusKeyAtom(configAtom, 'vrcConfigDir'), [configAtom]);
@@ -131,6 +132,7 @@ function SettingsBody({
                 handyConnectionKeyAtom={handyConnectionKeyAtom}
                 handyApplicationIdAtom={handyApplicationIdAtom}
                 handyEnabledAtom={handyEnabledAtom}
+                handyConnectionModeAtom={handyConnectionModeAtom}
             />
 
             <VrchatSettingsSection

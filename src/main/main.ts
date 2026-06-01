@@ -7,6 +7,9 @@ import Updater from './updater';
 import OscConnection from "./OscConnection";
 import Buttplug from "./Buttplug";
 import Handy from "./handy/Handy";
+import {registerBleTransport} from "./handy/HandyBleClient";
+import {NodeBleTransport} from "./handy/NodeBleTransport";
+import {WebBluetoothTransport} from "./handy/WebBluetoothTransport";
 import VrcConfigCheck from "./VrcConfigCheck";
 import {Container} from "typedi";
 import MainWindowService from "./services/MainWindowService";
@@ -27,6 +30,11 @@ import type {ButtplugFeatureInformation, Device, IntifaceDeviceFeatureSelection}
 import {configurePortableDataPaths} from "./portableData";
 
 app.enableSandbox();
+
+const ogbUseWebBle = process.platform !== "linux" || process.env["OGB_FORCE_WEBBLE"] === "1";
+if (ogbUseWebBle) {
+    app.commandLine.appendSwitch("enable-experimental-web-platform-features");
+}
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -61,6 +69,7 @@ container.get(OscQueryMdnsBroadcastService);
 }
 
 const butt = container.get(Buttplug);
+registerBleTransport(() => ogbUseWebBle ? new WebBluetoothTransport() : new NodeBleTransport());
 const handy = container.get(Handy);
 const bridge = container.get(Bridge);
 
@@ -88,7 +97,10 @@ handleIpc('settings-state:request', async () => {
         configService.getCached().intifaceAddress,
         myAddressesService,
     );
-    const handyConfigured = Boolean(configService.getCached().handyConnectionKey?.trim()) && Boolean(configService.getCached().handyApplicationId?.trim());
+    const handyCfg = configService.getCached();
+    const handyConfigured = (handyCfg.handyConnectionMode ?? 'wifi') === 'ble'
+        ? true
+        : Boolean(handyCfg.handyConnectionKey?.trim()) && Boolean(handyCfg.handyApplicationId?.trim());
     const handyConnected = handy.isConnected();
     const vrchatConnected = oscConnection.isGameOpenAndActive();
     const detectedVrcConfigDir = await vrchatLogFinder.getDetectedVrcConfigDir();

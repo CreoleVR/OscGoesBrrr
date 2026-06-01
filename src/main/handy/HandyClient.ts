@@ -1,34 +1,18 @@
 import got, {HTTPError, RequestError} from "got";
+import type {BaseResponse, IHandyClient, SliderState} from "./IHandyClient";
+
+export type {BaseResponse, HandyError, SliderState} from "./IHandyClient";
 
 const BASE_URI = "https://www.handyfeeling.com/api/handy-rest/v3/";
 const DEVICE_CONNECTION_KEY_HEADER = "X-Connection-Key";
 const APPLICATION_ID_KEY_HEADER = "X-Api-Key";
 const REQUEST_TIMEOUT_MS = 5000;
 
-export interface HandyError {
-    name?: string;
-    message?: string;
-    code?: number;
-}
-
 export interface ConnectionStatusResult {
     connected: boolean;
 }
 
-export interface SliderState {
-    position: number;
-    position_absolute: number;
-    speed_absolute: number;
-    dir: boolean;
-    motor_temp: number;
-}
-
-export interface BaseResponse<T> {
-    result?: T;
-    error?: HandyError;
-}
-
-export class HandyClient {
+export class HandyClient implements IHandyClient {
     constructor(
         private readonly connectionKey: string,
         private readonly applicationId: string,
