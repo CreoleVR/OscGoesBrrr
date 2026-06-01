@@ -30,7 +30,9 @@ jobs:
         id: determine_version
         run: |
           UPSTREAM_VERSION="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1)"
-          VERSION="${UPSTREAM_VERSION}-creole"
+          LAST_FORK_VERSION="$(git tag --list "v${UPSTREAM_VERSION}-creole-*" | sed -E 's/.*-creole-//' | grep -E '^[0-9]+$' | sort -n | tail -1)"
+          FORK_VERSION="$(( ${LAST_FORK_VERSION:-1} + 1 ))"
+          VERSION="${UPSTREAM_VERSION}-creole-${FORK_VERSION}"
           TAG_NAME="v${VERSION}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tagName=$TAG_NAME" >> "$GITHUB_OUTPUT"
