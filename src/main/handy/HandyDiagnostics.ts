@@ -1,4 +1,4 @@
-import {HandyClient} from "./HandyClient";
+import type {IHandyClient} from "./IHandyClient";
 import {HandyDiagnosticResult} from "../../common/ipcContract";
 
 interface Sample {
@@ -53,7 +53,7 @@ function sleep(ms: number): Promise<void> {
     return new Promise(r => setTimeout(r, ms));
 }
 
-export async function runHandyDiagnostic(client: HandyClient): Promise<HandyDiagnosticResult> {
+export async function runHandyDiagnostic(client: IHandyClient): Promise<HandyDiagnosticResult> {
     const sentPoints: Sample[] = [];
     const actualPoints: Sample[] = [];
     const start = Date.now();

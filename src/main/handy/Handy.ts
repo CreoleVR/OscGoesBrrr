@@ -9,6 +9,8 @@ import type {IntifaceFeatureInformation, IntifaceInt32, IntifaceUInt32, Device, 
 import {Result} from "../../common/result";
 import {HandyDiagnosticResult} from "../../common/ipcContract";
 import {HandyClient} from "./HandyClient";
+import {HandyBleClient} from "./HandyBleClient";
+import type {IHandyClient} from "./IHandyClient";
 import {runHandyDiagnostic} from "./HandyDiagnostics";
 
 export const HANDY_FEATURE_ID = 'handy';
@@ -138,27 +140,36 @@ export default class Handy extends TypedEventEmitter<HandyEvents> {
         if (config.handyEnabled !== true) return;
         const connectionKey = (config.handyConnectionKey ?? '').trim();
         const applicationId = (config.handyApplicationId ?? '').trim();
-        if (!connectionKey || !applicationId) return;
+        const mode = config.handyConnectionMode ?? 'wifi';
+        if (mode === 'wifi' && (!connectionKey || !applicationId)) return;
         this.connecting = true;
+        let clientForCleanup: IHandyClient | undefined;
         try {
-            const client = new HandyClient(connectionKey, applicationId);
+            const client: IHandyClient = mode === 'ble'
+                ? new HandyBleClient()
+                : new HandyClient(connectionKey, applicationId);
+            clientForCleanup = client;
 
-            this.logger.log('Checking connection ...');
+            this.logger.log(`Connecting to Handy via ${mode === 'ble' ? 'Bluetooth' : 'Wi-Fi'} ...`);
+            if (client.connect) await client.connect(() => this.handleTransportLost(generation));
+            if (generation !== this.connectionGeneration) { await client.shutdown?.(); return; }
             const connected = await client.isConnected();
-            if (generation !== this.connectionGeneration) return;
+            if (generation !== this.connectionGeneration) { await client.shutdown?.(); return; }
             if (!connected) {
                 this.logger.log('Handy not connected. Will retry.');
+                await client.shutdown?.();
                 this.scheduleRetry(generation, 5000);
                 return;
             }
 
             const test = await client.hdspXpt(0.1, 1000, true, false);
-            if (generation !== this.connectionGeneration) return;
+            if (generation !== this.connectionGeneration) { await client.shutdown?.(); return; }
             if (test.error) {
                 const hint = test.error.code === 1001
                     ? ' Make sure it is on firmware 4, online, and the connection key is correct.'
                     : '';
                 this.logger.log(`Failed to send HDSP command to device: ${test.error.message ?? ''}${hint}`);
+                await client.shutdown?.();
                 this.scheduleRetry(generation, 5000);
                 return;
             }
@@ -166,6 +177,7 @@ export default class Handy extends TypedEventEmitter<HandyEvents> {
             this.connected = true;
             const feature = new HandyDeviceFeature(HANDY_FEATURE_ID, client, this.logger);
             this.currentFeature = feature;
+            clientForCleanup = undefined;
             void this.backendDataService
                 .updateDeviceHistory(feature.id, feature.intiface)
                 .catch(e => this.logger.log('Failed to update Handy history', e));
@@ -174,12 +186,25 @@ export default class Handy extends TypedEventEmitter<HandyEvents> {
             feature.startSendLoop(generation, () => this.connectionGeneration);
         } catch (e) {
             this.logger.log('Connection error:', e);
+            await clientForCleanup?.shutdown?.().catch(() => undefined);
             if (generation === this.connectionGeneration) {
                 this.scheduleRetry(generation, 5000);
             }
         } finally {
             this.connecting = false;
+            if (generation !== this.connectionGeneration
+                && this.retryTimer === undefined
+                && this.configService.getCached().handyEnabled === true) {
+                void this.connect(this.connectionGeneration);
+            }
         }
+    }
+
+    private handleTransportLost(generation: number) {
+        if (generation !== this.connectionGeneration) return;
+        if (!this.connected) return;
+        this.logger.log('Handy disconnected. Reconnecting ...');
+        this.requestReconnect(500);
     }
 }
 
@@ -201,7 +226,7 @@ export class HandyDeviceFeature implements DeviceFeature {
 
     constructor(
         id: string,
-        readonly client: HandyClient,
+        readonly client: IHandyClient,
         private readonly logger: SubLogger,
     ) {
         this.id = id;
@@ -290,10 +315,11 @@ export class HandyDeviceFeature implements DeviceFeature {
             clearTimeout(this.sendTimer);
             this.sendTimer = undefined;
         }
-        if (this.lastSentX < 0) return;
         try {
-            await this.client.hdspXpt(this.lastSentX / 100, 0, true, true);
+            if (this.lastSentX >= 0) await this.client.hdspXpt(this.lastSentX / 100, 0, true, true);
         } catch {
+        } finally {
+            await this.client.shutdown?.();
         }
     }
 }

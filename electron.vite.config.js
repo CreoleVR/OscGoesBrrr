@@ -28,7 +28,7 @@ export default defineConfig({
                 fileName: 'main',
             },
             rollupOptions: {
-                external: ['bufferutil', 'native-reg', 'utf-8-validate'],
+                external: ['bufferutil', 'native-reg', 'node-ble', 'utf-8-validate'],
             },
         },
     },
