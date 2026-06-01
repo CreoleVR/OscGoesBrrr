@@ -116,5 +116,8 @@
     "files": [
       "out/**/*"
     ]
+  },
+  "dependencies": {
+    "node-ble": "^1.13.0"
   }
 }
