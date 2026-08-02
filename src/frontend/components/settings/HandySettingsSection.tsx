@@ -91,7 +91,7 @@ function HandySettingsSection({
             expanded={expanded}
             onChange={onChange}
             summary={
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{alignItems: 'center'}}>
                     <ConnectionBubble color={getConnectionBubbleColor(alerts)} />
                     <Typography variant="h6">The Handy</Typography>
                 </Stack>
@@ -141,7 +141,7 @@ function HandySettingsSection({
                         />
                     </>
                 )}
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{alignItems: 'center'}}>
                     <Button
                         variant="contained"
                         color={enabled ? "error" : "primary"}

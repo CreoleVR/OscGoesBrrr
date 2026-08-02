@@ -49,9 +49,8 @@ export class HandyClient implements IHandyClient {
 
     private async request<T>(method: 'GET' | 'PUT', path: string, body?: unknown): Promise<BaseResponse<T>> {
         try {
-            const response = await got({
+            const response = await got(BASE_URI + path, {
                 method,
-                url: BASE_URI + path,
                 headers: {
                     accept: 'application/json',
                     [DEVICE_CONNECTION_KEY_HEADER]: this.connectionKey,
