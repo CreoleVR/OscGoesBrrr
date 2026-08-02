@@ -9,3 +9,4 @@ allowBuilds:
   electron-winstaller: false
   esbuild: false
   native-reg: false
+  usocket: false
