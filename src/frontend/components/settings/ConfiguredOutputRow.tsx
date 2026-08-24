@@ -64,7 +64,7 @@ function ConfiguredOutputRow({outputAtom, infoAtom, onDelete}: Props) {
     const linkLevelsAtom = useMemo(
         () => selectAtom(
             infoAtom,
-            (info) => info?.lastSources ?? [],
+            (info) => info?.lastLinkValues ?? [],
             (a, b) => a.length === b.length && a.every((value, index) => value === b[index]),
         ),
         [infoAtom],

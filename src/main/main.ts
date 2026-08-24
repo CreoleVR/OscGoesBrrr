@@ -126,7 +126,7 @@ handleIpc('settings-state:request', async () => {
         connected: boolean,
         showLinearActuatorOptions: boolean,
         currentLevel: number,
-        lastSources: number[],
+        lastLinkValues: number[],
     }>();
     const naming = new Map<string, {
         deviceName: string,
@@ -166,7 +166,7 @@ handleIpc('settings-state:request', async () => {
             connected: false,
             showLinearActuatorOptions: item.intiface.selectedOutput === 'Position' || item.intiface.selectedOutput === 'HwPositionWithDuration',
             currentLevel: 0,
-            lastSources: [],
+            lastLinkValues: [],
         });
         naming.set(id, getNaming(item.intiface, id));
     }
@@ -178,7 +178,7 @@ handleIpc('settings-state:request', async () => {
             connected: true,
             showLinearActuatorOptions: outputDevice.bioFeature.type === 'linear',
             currentLevel: outputDevice.getCurrentLevel(),
-            lastSources: outputDevice.getLastSources(),
+            lastLinkValues: outputDevice.getLastLinkValues(),
         });
         naming.set(id, getNaming(outputDevice.bioFeature.intiface, id));
     }

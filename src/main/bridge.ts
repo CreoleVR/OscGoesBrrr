@@ -104,13 +104,14 @@ export default class Bridge {
     }
 }
 
-interface RelevantSource {
-    value: number;
-    motionBased: boolean;
+interface LinkOutput {
+    output: number;
+    backward: boolean;
 }
 
 export class BridgeOutput {
-    private lastSources: number[] = [];
+    private lastLinkValues: number[] = [];
+    private lastSourceValues = new Map<string, number>();
     public lastLevel = 0;
     private lastPushTime = 0;
     private linearTarget = 0;
@@ -133,52 +134,62 @@ export class BridgeOutput {
         };
     }
 
-    private hasMotionBased(mutators: OutputLinkMutator[]) {
-        return mutators.some(mutator => mutator.kind === 'motionBased');
-    }
+    private applyMutators(
+        value: number,
+        velocity: number,
+        mutators: OutputLinkMutator[],
+    ): LinkOutput {
+        let backward = false;
+        if (this.bioFeature.type !== 'linear' && mutators.some(mutator => mutator.kind === 'motionBased')) {
+            value = Math.abs(velocity) / 5;
+            backward = velocity < 0;
+        }
 
-    private applyMutators(value: number, mutators: OutputLinkMutator[]) {
-        let out = value;
         const deadZone = mutators.find(
             (mutator): mutator is Extract<OutputLinkMutator, {kind: 'deadZone'}> => mutator.kind === 'deadZone',
         );
         if (deadZone) {
             if (deadZone.level >= 1) {
-                out = 0;
+                value = 0;
             } else if (deadZone.level > 0) {
-                out = (out - deadZone.level) / (1 - deadZone.level);
+                value = (value - deadZone.level) / (1 - deadZone.level);
             }
         }
         const scale = mutators.find(
             (mutator): mutator is Extract<OutputLinkMutator, {kind: 'scale'}> => mutator.kind === 'scale',
         );
-        if (scale) out = out * scale.scale;
-        return out;
+        if (scale) value = value * scale.scale;
+        return {output: value, backward};
     }
 
-    getRelevantSources(gameDevices: GameDevice[], audioLevel: number | undefined, config: Output): RelevantSource[] {
+    getLinkOutputs(gameDevices: GameDevice[], audioLevel: number | undefined, config: Output, timeDelta: number): LinkOutput[] {
         const links = config.links;
         const entries = this.osc.entries();
-        return links.map((link) => {
+        const nextLastSources = new Map<string, number>();
+        const applyMutators = (sourceId: string, value: number, mutators: OutputLinkMutator[]) => {
+            const lastValue = this.lastSourceValues.get(sourceId) ?? value;
+            nextLastSources.set(sourceId, value);
+            const velocity = timeDelta === 0 ? 0 : (value - lastValue) / timeDelta * 1000;
+            return this.applyMutators(value, velocity, mutators);
+        };
+
+        const linkOutputs = links.map((link, linkIndex) => {
+            const linkId = String(linkIndex);
             if (link.kind === 'constant') {
-                if (this.bioFeature.type === 'linear') return {value: 0, motionBased: false};
+                if (this.bioFeature.type === 'linear') return {output: 0, backward: false};
                 return {
-                    value: link.level,
-                    motionBased: false,
+                    output: link.level,
+                    backward: false,
                 };
             }
             if (link.kind === 'systemAudio') {
-                if (this.bioFeature.type === 'linear') return {value: 0, motionBased: false};
+                if (this.bioFeature.type === 'linear') return {output: 0, backward: false};
                 const rawAudio = audioLevel ?? 0;
-                const transformed = this.applyMutators(rawAudio, link.mutators);
-                return {
-                    value: transformed,
-                    motionBased: false,
-                };
+                return applyMutators(linkId, rawAudio, link.mutators);
             }
             if (link.kind === 'vrchat.avatarParameter') {
                 const parameter = link.parameter.trim();
-                if (!parameter) return {value: 0, motionBased: false};
+                if (!parameter) return {output: 0, backward: false};
                 const valueUnknown = entries.get(parameter)?.get();
                 const raw =
                     typeof valueUnknown === 'number'
@@ -186,29 +197,24 @@ export class BridgeOutput {
                         : typeof valueUnknown === 'boolean'
                             ? (valueUnknown ? 1 : 0)
                             : 0;
-                const transformed = this.applyMutators(raw, link.mutators);
-                return {
-                    value: transformed,
-                    motionBased: this.hasMotionBased(link.mutators),
-                };
+                return applyMutators(`${linkId}/${parameter}`, raw, link.mutators);
             }
-            let best: RelevantSource = {value: 0, motionBased: this.hasMotionBased(link.mutators)};
+            let best: LinkOutput = {output: 0, backward: false};
             if (link.kind === 'vrchat.sps.plug' || link.kind === 'vrchat.sps.socket' || link.kind === 'vrchat.sps.touch') {
                 for (const gameDevice of gameDevices) {
                     for (const source of gameDevice.getSources(link)) {
-                        const transformed = this.applyMutators(source.level, link.mutators);
-                        const candidate: RelevantSource = {
-                            value: transformed,
-                            motionBased: this.hasMotionBased(link.mutators),
-                        };
-                        if (candidate.value > best.value) {
+                        const candidate = applyMutators(`${linkId}/${source.id}`, source.level, link.mutators);
+                        if (candidate.output > best.output) {
                             best = candidate;
                         }
                     }
                 }
-                }
+            }
             return best;
         });
+        this.lastSourceValues = nextLastSources;
+        this.lastLinkValues = linkOutputs.map(linkOutput => linkOutput.output);
+        return linkOutputs;
     }
 
     pushToBio(gameDevices: GameDevice[], audioLevel: number | undefined) {
@@ -217,28 +223,13 @@ export class BridgeOutput {
         const config = this.getConfig();
         const timeDelta = clamp(timeDeltaReal, 0, 250); // safety limited
 
-        const sources = this.getRelevantSources(gameDevices, audioLevel, config);
+        const linkOutputs = this.getLinkOutputs(gameDevices, audioLevel, config, timeDelta);
         let level = 0;
         let motionBasedBackward = false;
-        for (let linkIndex = 0; linkIndex < sources.length; linkIndex++) {
-            const source = sources[linkIndex] ?? {value: 0, motionBased: false};
-            const value = source.value;
-            if (this.bioFeature.type == 'linear') {
-                level = Math.max(level, value);
-            } else if (source.motionBased) {
-                const lastValue = this.lastSources[linkIndex];
-                if (lastValue !== undefined) {
-                    const delta = value - lastValue;
-                    const diffPerSecond = Math.abs(delta) / timeDelta * 1000;
-                    const intensity = diffPerSecond / 5;
-                    if (intensity > level) {
-                        level = intensity;
-                        motionBasedBackward = delta < 0;
-                    }
-                    level = Math.max(level, intensity);
-                }
-            } else {
-                level = Math.max(level, value);
+        for (const linkOutput of linkOutputs) {
+            if (linkOutput.output > level) {
+                level = linkOutput.output;
+                motionBasedBackward = linkOutput.backward;
             }
         }
 
@@ -344,7 +335,6 @@ export class BridgeOutput {
         }
 
         this.lastLevel = this.bioFeature.lastLevel;
-        this.lastSources = sources.map((source) => source?.value ?? 0);
         this.lastPushTime = now;
     }
 
@@ -357,7 +347,7 @@ export class BridgeOutput {
         return this.lastLevel;
     }
 
-    getLastSources() {
-        return [...this.lastSources];
+    getLastLinkValues() {
+        return [...this.lastLinkValues];
     }
 }

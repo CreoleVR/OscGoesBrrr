@@ -7,7 +7,7 @@ export interface OutputDeviceInfo {
     connected: boolean;
     showLinearActuatorOptions: boolean;
     currentLevel: number;
-    lastSources: number[];
+    lastLinkValues: number[];
 }
 
 export type OscqueryStatus =
