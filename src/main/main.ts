@@ -10,6 +10,7 @@ import Handy from "./handy/Handy";
 import {registerBleTransport} from "./handy/HandyBleClient";
 import {NodeBleTransport} from "./handy/NodeBleTransport";
 import {WebBluetoothTransport} from "./handy/WebBluetoothTransport";
+import type {BleTransport} from "./handy/HandyBleClient";
 import VrcConfigCheck from "./VrcConfigCheck";
 import {Container} from "typedi";
 import MainWindowService from "./services/MainWindowService";
@@ -31,7 +32,7 @@ import {configurePortableDataPaths} from "./portableData";
 
 app.enableSandbox();
 
-const ogbUseWebBle = process.platform !== "linux" || process.env["OGB_FORCE_WEBBLE"] === "1";
+const ogbUseWebBle = process.platform === "darwin" || process.env["OGB_FORCE_WEBBLE"] === "1";
 if (ogbUseWebBle) {
     app.commandLine.appendSwitch("enable-experimental-web-platform-features");
 }
@@ -69,7 +70,16 @@ container.get(OscQueryMdnsBroadcastService);
 }
 
 const intiface = container.get(Intiface);
-registerBleTransport(() => ogbUseWebBle ? new WebBluetoothTransport() : new NodeBleTransport());
+let createBleTransport: () => BleTransport;
+if (ogbUseWebBle) {
+    createBleTransport = () => new WebBluetoothTransport();
+} else if (process.platform === "win32") {
+    const {WindowsBleTransport} = await import("./handy/WindowsBleTransport");
+    createBleTransport = () => new WindowsBleTransport();
+} else {
+    createBleTransport = () => new NodeBleTransport();
+}
+registerBleTransport(createBleTransport);
 const handy = container.get(Handy);
 const bridge = container.get(Bridge);
 

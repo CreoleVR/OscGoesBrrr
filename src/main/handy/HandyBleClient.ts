@@ -109,6 +109,7 @@ export function registerBleTransport(factory: () => BleTransport): void {
 
 export class HandyBleClient implements IHandyClient {
     private transport?: BleTransport;
+    private nextRequestId = 1;
     private readonly pending = new Map<number, {resolve: (r: BaseResponse<unknown>) => void; timer: ReturnType<typeof setTimeout>}>();
 
     constructor(_connectionKey?: string) {}
@@ -123,7 +124,8 @@ export class HandyBleClient implements IHandyClient {
             (data) => this.onNotify(data),
             () => { if (onConnectionLost) onConnectionLost(); },
         );
-        await this.send(buildModeSetFrame(this.newId(), Mode.HDSP), 2000);
+        const modeResponse = await this.send(buildModeSetFrame(this.newId(), Mode.HDSP), 2000);
+        if (modeResponse.error) throw new Error(modeResponse.error.message ?? "Failed to set Handy mode");
     }
 
     async isConnected(): Promise<boolean> {
@@ -153,7 +155,9 @@ export class HandyBleClient implements IHandyClient {
     }
 
     private newId(): number {
-        return 1 + Math.floor(Math.random() * 0xfffffffe);
+        const id = this.nextRequestId;
+        this.nextRequestId = id === 0xffffffff ? 1 : id + 1;
+        return id;
     }
 
     private onNotify(data: Buffer): void {

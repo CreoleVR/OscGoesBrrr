@@ -5,8 +5,11 @@ minimumReleaseAgeExclude:
 allowBuilds:
   '@parcel/watcher': false
   '@serialport/bindings-cpp': false
+  '@stoprocent/bluetooth-hci-socket': false
+  '@stoprocent/noble': true
   '@swc/core': false
   electron-winstaller: false
   esbuild: false
   native-reg: false
+  usb: false
   usocket: false
