@@ -118,6 +118,7 @@
     ]
   },
   "dependencies": {
+    "@stoprocent/noble": "2.8.0",
     "node-ble": "^1.13.0"
   }
 }
