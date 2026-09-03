@@ -8,19 +8,28 @@ export interface MdnsServiceQuery {
     protocol: "tcp" | "udp";
 }
 
-type BonjourNetworkOptions = Partial<ServiceConfig> & {interface: string};
+type BonjourNetworkOptions = Partial<ServiceConfig> & {
+    bind: "0.0.0.0";
+    interface: string;
+};
 
 /** Keeps mDNS browsers alive so services can share their discovered-service registry. */
 @Service()
 export default class MdnsRegistryService {
-    // multicast-dns otherwise sends through one default interface, which can be a VPN or virtual adapter on Windows.
     private readonly mdnsClients: Bonjour[];
     private readonly browsers = new Map<string, InstanceType<typeof Bonjour.Browser>[]>();
 
     constructor(myAddresses: MyAddressesService) {
         const addresses = myAddresses.getExternalIpv4Addresses();
         this.mdnsClients = addresses.length === 0 ? [new Bonjour()] : addresses.map(address => {
-            const options: BonjourNetworkOptions = {interface: address};
+            const options: BonjourNetworkOptions = {
+                // If we just use the default "all interfaces" option, it listens to all interfaces,
+                // but only sends queries out the 'default' interface, which is often wrong.
+                interface: address,
+                // If we don't specify 'bind', it tries to bind to 224.0.0.251 which only works on windows.
+                // On linux, binding would fail, so it would send out queries but never receive the responses.
+                bind: "0.0.0.0"
+            };
             return new Bonjour(options);
         });
     }
