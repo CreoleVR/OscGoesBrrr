@@ -48,9 +48,7 @@ jobs:
 
   build_win:
     needs: [version]
-    runs-on: ubuntu-latest
-    container:
-      image: electronuserland/builder:wine
+    runs-on: windows-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
@@ -58,16 +56,16 @@ jobs:
         with:
           standalone: true
       - name: Build
+        shell: bash
         run: |
-          pnpm install --frozen-lockfile --config.platform=win32
+          pnpm install --frozen-lockfile
           pnpm run build
           pnpm exec electron-builder \
-            --win nsis portable \
+            --win nsis portable --x64 \
             --config.extraMetadata.version="$VERSION" \
             --config.nsis.artifactName="OscGoesBrrr-windows-setup-${VERSION}.exe" \
             --config.portable.artifactName="OscGoesBrrr-windows-portable-${VERSION}.exe"
         env:
-          HOME: /root
           VERSION: ${{ needs.version.outputs.version }}
       - uses: actions/upload-artifact@v7
         with:
